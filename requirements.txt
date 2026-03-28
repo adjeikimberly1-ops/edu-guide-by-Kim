@@ -6,3 +6,4 @@ python-dotenv
 streamlit
 tavily-python
 fpdf2
+zstandard==0.22.0
