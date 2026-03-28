@@ -1,6 +1,9 @@
 # 🎓 EduGuide by Kim
 > A personalized AI learning coach built with LangChain, Groq & Streamlit
 
+##  Live Demo
+ [Try EduGuide AI Live](https://edu-guide-by-kim-qm8t69jmbeceqcua6l33py.streamlit.app/)
+
 ## Features
 - **Roadmap Builder** : personalised step-by-step learning plans.
 - **Concept Explainer** : any topic in plain and simple language.
