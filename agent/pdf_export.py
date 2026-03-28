@@ -1,0 +1,144 @@
+from fpdf import FPDF
+from datetime import datetime
+from pathlib import Path
+import tempfile
+
+
+def export_progress_pdf(summary: dict) -> str:
+    """
+    Generates a styled PDF progress report from the user's learning summary.
+    Returns the path to the temporary PDF file.
+    """
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+
+    # ── Header bar ──────────────────────────────────────────────────────────
+    pdf.set_fill_color(15, 23, 42)        # deep navy
+    pdf.rect(0, 0, 210, 38, style="F")
+
+    pdf.set_font("Helvetica", "B", 22)
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_xy(10, 8)
+    pdf.cell(0, 10, "EduGuide AI", ln=False)
+
+    pdf.set_font("Helvetica", "", 10)
+    pdf.set_text_color(160, 180, 220)
+    pdf.set_xy(10, 22)
+    pdf.cell(0, 8, "Your Personal Learning Progress Report")
+
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(120, 140, 180)
+    pdf.set_xy(140, 25)
+    pdf.cell(0, 8, f"Generated: {datetime.now().strftime('%d %b %Y, %H:%M')}")
+
+    pdf.ln(30)
+
+    # ── Stats row ────────────────────────────────────────────────────────────
+    stats = [
+        ("🔥 Streak", f"{summary['streak_days']} days"),
+        ("📚 Topics", str(summary['total_topics'])),
+        ("📝 Quizzes", str(summary['total_quizzes'])),
+        ("🗺️ Roadmaps", str(summary['total_roadmaps'])),
+    ]
+
+    pdf.set_y(45)
+    box_w = 44
+    for i, (label, value) in enumerate(stats):
+        x = 10 + i * (box_w + 3)
+        pdf.set_fill_color(241, 245, 255)
+        pdf.set_draw_color(200, 210, 240)
+        pdf.rounded_rect(x, pdf.get_y(), box_w, 22, 3, style="FD")
+
+        pdf.set_font("Helvetica", "B", 14)
+        pdf.set_text_color(30, 60, 140)
+        pdf.set_xy(x, pdf.get_y() + 2)
+        pdf.cell(box_w, 8, value, align="C")
+
+        pdf.set_font("Helvetica", "", 8)
+        pdf.set_text_color(100, 110, 140)
+        pdf.set_xy(x, pdf.get_y() + 8)
+        pdf.cell(box_w, 6, label, align="C")
+
+    pdf.ln(32)
+
+    def section_header(title: str):
+        pdf.set_fill_color(30, 41, 82)
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_font("Helvetica", "B", 11)
+        pdf.cell(0, 9, f"  {title}", ln=True, fill=True)
+        pdf.ln(3)
+        pdf.set_text_color(30, 30, 30)
+
+    def row(label: str, value: str, shade: bool = False):
+        if shade:
+            pdf.set_fill_color(247, 249, 255)
+        else:
+            pdf.set_fill_color(255, 255, 255)
+        pdf.set_font("Helvetica", "", 10)
+        pdf.set_text_color(50, 50, 80)
+        pdf.cell(90, 8, f"  {label}", fill=True)
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.set_text_color(30, 60, 140)
+        pdf.cell(0, 8, value, ln=True, fill=True)
+
+    # ── Topics studied ───────────────────────────────────────────────────────
+    section_header("📚 Topics Studied")
+    if summary["topics"]:
+        for i, t in enumerate(summary["topics"]):
+            dt = t["studied_at"][:10]
+            row(t["topic"].title(), dt, shade=(i % 2 == 0))
+    else:
+        pdf.set_font("Helvetica", "I", 10)
+        pdf.set_text_color(150, 150, 150)
+        pdf.cell(0, 8, "  No topics studied yet.", ln=True)
+    pdf.ln(5)
+
+    # ── Quiz scores ──────────────────────────────────────────────────────────
+    section_header("📝 Quiz Scores")
+    if summary["quizzes"]:
+        for i, q in enumerate(summary["quizzes"]):
+            pct = round((q["score"] / q["total"]) * 100) if q["total"] else 0
+            label = f"{q['topic'].title()} ({q['level']})"
+            value = f"{q['score']}/{q['total']}  —  {pct}%"
+            row(label, value, shade=(i % 2 == 0))
+
+            # Mini progress bar
+            bar_x = 10
+            bar_y = pdf.get_y()
+            pdf.set_fill_color(220, 225, 240)
+            pdf.rect(bar_x, bar_y, 190, 3, style="F")
+            bar_color = (76, 175, 80) if pct >= 80 else (255, 152, 0) if pct >= 60 else (244, 67, 54)
+            pdf.set_fill_color(*bar_color)
+            pdf.rect(bar_x, bar_y, 190 * pct / 100, 3, style="F")
+            pdf.ln(5)
+    else:
+        pdf.set_font("Helvetica", "I", 10)
+        pdf.set_text_color(150, 150, 150)
+        pdf.cell(0, 8, "  No quiz scores saved yet.", ln=True)
+    pdf.ln(5)
+
+    # ── Roadmaps ─────────────────────────────────────────────────────────────
+    section_header("🗺️ Learning Roadmaps Generated")
+    if summary["roadmaps"]:
+        for i, r in enumerate(summary["roadmaps"]):
+            dt = r["created_at"][:10]
+            row(r["goal"], dt, shade=(i % 2 == 0))
+    else:
+        pdf.set_font("Helvetica", "I", 10)
+        pdf.set_text_color(150, 150, 150)
+        pdf.cell(0, 8, "  No roadmaps generated yet.", ln=True)
+    pdf.ln(5)
+
+    # ── Footer ───────────────────────────────────────────────────────────────
+    pdf.set_y(-20)
+    pdf.set_fill_color(15, 23, 42)
+    pdf.rect(0, pdf.get_y(), 210, 20, style="F")
+    pdf.set_font("Helvetica", "I", 8)
+    pdf.set_text_color(120, 140, 180)
+    pdf.cell(0, 10, "Generated by EduGuide AI  •  Keep learning, keep growing! 🚀", align="C")
+
+    # Save to temp file
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf", prefix="eduguide_progress_")
+    pdf.output(tmp.name)
+    return tmp.name
