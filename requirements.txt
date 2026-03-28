@@ -4,6 +4,6 @@ langchain-community==0.3.24
 langchain-core==0.3.59
 langsmith==0.2.3
 python-dotenv
-streamlit
+streamlit==1.45.0
 tavily-python
 fpdf2
